@@ -297,7 +297,7 @@ if __name__ == "__main__":
         freeze_backbone = False  # Set to True to freeze backbone during training
         train_one_backbone(
             backbone, train_csv, val_csv, test_csv, train_image_dir, val_image_dir, test_image_dir,
-            epochs=150, batch_size=32, lr=1e-3, img_size=256, pretrained_backbone=pretrained_backbone,
+            epochs=150, batch_size=32, lr=1e-4, img_size=256, pretrained_backbone=pretrained_backbone,
             freeze_backbone=freeze_backbone
         )
 
