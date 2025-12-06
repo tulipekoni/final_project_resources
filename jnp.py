@@ -2,6 +2,7 @@ import os
 import pandas as pd
 from PIL import Image
 
+from sympy.sets.sets import false
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -30,6 +31,26 @@ class RetinaMultiLabelDataset(Dataset):
         if self.transform:
             img = self.transform(img)
         return img, labels
+
+
+class RetinaInferenceDataset(Dataset):
+    """Dataset for inference without labels"""
+    def __init__(self, image_dir, transform=None):
+        self.image_dir = image_dir
+        self.transform = transform
+        # Get all image files
+        self.image_files = [f for f in os.listdir(image_dir) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+        self.image_files.sort()
+
+    def __len__(self):
+        return len(self.image_files)
+
+    def __getitem__(self, idx):
+        img_path = os.path.join(self.image_dir, self.image_files[idx])
+        img = Image.open(img_path).convert("RGB")
+        if self.transform:
+            img = self.transform(img)
+        return img, self.image_files[idx]
 
 
 # ========================
@@ -128,7 +149,9 @@ def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, 
     # ========================
     # testing
     # ========================
-    model.load_state_dict(torch.load(ckpt_path, map_location=device))
+    if epochs != 0:
+        model.load_state_dict(torch.load(ckpt_path, map_location=device))
+
     model.eval()
     y_true, y_pred = [], []
 
@@ -164,18 +187,118 @@ def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, 
         print(f"Kappa    : {kappa:.4f}")
 
 
+# ========================
+# Predict onsite labels using trained model
+# ========================
+def predict_onsite_labels(model_path, image_dir, backbone="resnet18", batch_size=32, 
+                          img_size=256, output_csv=None, threshold=0.5):
+    """
+    Predict labels for onsite images using a trained model.
+    
+    Args:
+        model_path: Path to the trained model checkpoint (e.g., "checkpoints/best_resnet18.pt")
+        image_dir: Directory containing onsite test images
+        backbone: Model backbone ("resnet18" or "efficientnet")
+        batch_size: Batch size for inference
+        img_size: Image size for preprocessing
+        output_csv: Optional path to save predictions as CSV. If None, returns DataFrame.
+        threshold: Threshold for binary classification (default: 0.5)
+    
+    Returns:
+        pandas.DataFrame with columns: id, D, G, A
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    # Create transforms (same as training)
+    transform = transforms.Compose([
+        transforms.Resize((img_size, img_size)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ])
+    
+    # Create dataset and dataloader
+    dataset = RetinaInferenceDataset(image_dir, transform)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+    
+    # Build and load model
+    model = build_model(backbone, num_classes=3, pretrained=False).to(device)
+    model.load_state_dict(torch.load(model_path, map_location=device))
+    model.eval()
+    
+    # Make predictions
+    predictions = []
+    image_ids = []
+    
+    with torch.no_grad():
+        for imgs, img_files in dataloader:
+            imgs = imgs.to(device)
+            outputs = model(imgs)
+            probs = torch.sigmoid(outputs).cpu().numpy()
+            preds = (probs > threshold).astype(int)
+            
+            predictions.extend(preds)
+            image_ids.extend(img_files)
+    
+    # Create DataFrame
+    results_df = pd.DataFrame({
+        'id': image_ids,
+        'D': [pred[0] for pred in predictions],
+        'G': [pred[1] for pred in predictions],
+        'A': [pred[2] for pred in predictions]
+    })
+    
+    # Sort by image id to ensure consistent ordering
+    results_df = results_df.sort_values('id').reset_index(drop=True)
+    
+    # Save to CSV if output path is provided
+    if output_csv:
+        results_df.to_csv(output_csv, index=False)
+        print(f"Predictions saved to {output_csv}")
+    
+    return results_df
+
+
     
 # ========================
 # main
 # ========================
 if __name__ == "__main__":
-    train_csv = "train.csv" # replace with your own train label file path
-    val_csv   = "val.csv" # replace with your own validation label file path
-    test_csv  = "offsite_test.csv"  # replace with your own test label file path
-    train_image_dir ="./images/train"   # replace with your own train image floder path
-    val_image_dir = "./images/val"  # replace with your own validation image floder path
-    test_image_dir = "./images/offsite_test" # replace with your own test image floder path
-    pretrained_backbone = './pretrained_backbone/ckpt_resnet18_ep50.pt'  # replace with your own pretrained backbone path
-    backbone = 'resnet18'  # backbone choices: ["resnet18", "efficientnet"]
-    train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, val_image_dir, test_image_dir,
-                           epochs=20, batch_size=32, lr=1e-5, img_size=256, pretrained_backbone=pretrained_backbone)
+    evaluate = True
+
+    if not evaluate:
+        train_csv = "train.csv" # replace with your own train label file path
+        val_csv   = "val.csv" # replace with your own validation label file path
+        test_csv  = "offsite_test.csv"  # replace with your own test label file path
+        train_image_dir ="./images/train"   # replace with your own train image floder path
+        val_image_dir = "./images/val"  # replace with your own validation image floder path
+        test_image_dir = "./images/offsite_test" # replace with your own test image floder path
+        pretrained_backbone = './pretrained_backbone/ckpt_resnet18_ep50.pt'  # replace with your own pretrained backbone path
+        backbone = 'resnet18'  # backbone choices: ["resnet18", "efficientnet"]
+        train_one_backbone(
+            backbone, train_csv, val_csv, test_csv, train_image_dir, val_image_dir, test_image_dir,
+            epochs=0, batch_size=32, lr=1e-5, img_size=256, pretrained_backbone=pretrained_backbone
+        )
+
+        
+    if evaluate:
+        test_image_dir = "./images/onsite_test"
+        backbone = "resnet18"
+        model_path = "./pretrained_backbone/ckpt_resnet18_ep50.pt"
+        batch_size = 32
+        img_size = 256
+        output_csv = f"onsite_predictions_{backbone}.csv"
+
+        print("\n" + "="*50)
+        print("Predicting onsite labels...")
+        print("="*50)
+        onsite_predictions = predict_onsite_labels(
+            model_path=model_path,
+            image_dir=test_image_dir,
+            backbone=backbone,
+            batch_size=batch_size,
+            img_size=img_size,
+            output_csv=output_csv
+        )
+        print(f"\nPredicted labels for {len(onsite_predictions)} onsite images")
+        print("\nFirst few predictions:")
+        print(onsite_predictions.head())
