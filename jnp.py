@@ -73,7 +73,8 @@ def build_model(backbone="resnet18", num_classes=3, pretrained=True):
 # model training and val
 # ========================
 def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, val_image_dir, test_image_dir, 
-                       epochs=10, batch_size=32, lr=1e-4, img_size=256, save_dir="checkpoints",pretrained_backbone=None):
+                       epochs=10, batch_size=32, lr=1e-4, img_size=256, save_dir="checkpoints",pretrained_backbone=None,
+                       freeze_backbone=False):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # transforms
@@ -95,8 +96,23 @@ def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, 
     # model
     model = build_model(backbone, num_classes=3, pretrained=False).to(device)
 
-    for p in model.parameters():
-        p.requires_grad = True
+    # Freeze backbone if requested
+    if freeze_backbone:
+        if backbone == "resnet18":
+            # Freeze all layers except the classifier (fc)
+            for name, param in model.named_parameters():
+                if 'fc' not in name:
+                    param.requires_grad = False
+        elif backbone == "efficientnet":
+            # Freeze all layers except the classifier
+            for name, param in model.named_parameters():
+                if 'classifier' not in name:
+                    param.requires_grad = False
+        print(f"[{backbone}] Backbone frozen. Only classifier will be trained.")
+    else:
+        # All parameters trainable
+        for p in model.parameters():
+            p.requires_grad = True
     
     # loss & optimizer
     criterion = nn.BCEWithLogitsLoss()
@@ -274,9 +290,11 @@ if __name__ == "__main__":
         test_image_dir = "./images/offsite_test" # replace with your own test image floder path
         pretrained_backbone = './pretrained_backbone/ckpt_resnet18_ep50.pt'  # replace with your own pretrained backbone path
         backbone = 'resnet18'  # backbone choices: ["resnet18", "efficientnet"]
+        freeze_backbone = True  # Set to True to freeze backbone during training
         train_one_backbone(
             backbone, train_csv, val_csv, test_csv, train_image_dir, val_image_dir, test_image_dir,
-            epochs=0, batch_size=32, lr=1e-5, img_size=256, pretrained_backbone=pretrained_backbone
+            epochs=20, batch_size=32, lr=1e-5, img_size=256, pretrained_backbone=pretrained_backbone,
+            freeze_backbone=freeze_backbone
         )
 
         
