@@ -292,8 +292,8 @@ if __name__ == "__main__":
         train_image_dir ="./images/train"   # replace with your own train image floder path
         val_image_dir = "./images/val"  # replace with your own validation image floder path
         test_image_dir = "./images/offsite_test" # replace with your own test image floder path
-        pretrained_backbone = './pretrained_backbone/ckpt_resnet18_ep50.pt'  # replace with your own pretrained backbone path
-        backbone = 'resnet18'  # backbone choices: ["resnet18", "efficientnet"]
+        pretrained_backbone = './pretrained_backbone/ckpt_efficientnet_ep50.pt'  # replace with your own pretrained backbone path
+        backbone = 'efficientnet'  # backbone choices: ["resnet18", "efficientnet"]
         freeze_backbone = True  # Set to True to freeze backbone during training
         train_one_backbone(
             backbone, train_csv, val_csv, test_csv, train_image_dir, val_image_dir, test_image_dir,
