@@ -43,8 +43,6 @@ venv.bak/
 
 # Model checkpoints and pretrained models
 checkpoints/
-pretrained_backbone/
-*.pt
 *.pth
 *.ckpt
 *.h5
