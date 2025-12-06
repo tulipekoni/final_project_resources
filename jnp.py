@@ -295,7 +295,7 @@ if __name__ == "__main__":
         freeze_backbone = True  # Set to True to freeze backbone during training
         train_one_backbone(
             backbone, train_csv, val_csv, test_csv, train_image_dir, val_image_dir, test_image_dir,
-            epochs=50, batch_size=32, lr=5e-5, img_size=256, pretrained_backbone=pretrained_backbone,
+            epochs=150, batch_size=32, lr=5e-5, img_size=256, pretrained_backbone=pretrained_backbone,
             freeze_backbone=freeze_backbone
         )
 
@@ -303,7 +303,7 @@ if __name__ == "__main__":
     if evaluate:
         test_image_dir = "./images/onsite_test"
         backbone = "resnet18"
-        model_path = "./pretrained_backbone/ckpt_resnet18_ep50.pt"
+        model_path = "./checkpoints/best_resnet18_1e-4-epoch50.pt"
         batch_size = 32
         img_size = 256
         output_csv = f"onsite_predictions_{backbone}.csv"
