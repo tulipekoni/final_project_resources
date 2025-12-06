@@ -97,18 +97,18 @@ def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, 
     # model
     model = build_model(backbone, num_classes=3, pretrained=False).to(device)
 
+
+
     # Freeze backbone if requested
     if freeze_backbone:
         if backbone == "resnet18":
             # Freeze all layers except the classifier (fc)
-            for name, param in model.named_parameters():
-                if 'fc' not in name:
-                    param.requires_grad = False
+            for param in model.fc.parameters():
+                param.requires_grad = False
         elif backbone == "efficientnet":
             # Freeze all layers except the classifier
-            for name, param in model.named_parameters():
-                if 'classifier' not in name:
-                    param.requires_grad = False
+            for param in model.classifier.parameters():
+                param.requires_grad = False
         print(f"[{backbone}] Backbone frozen. Only classifier will be trained.")
     else:
         # All parameters trainable
@@ -303,7 +303,7 @@ if __name__ == "__main__":
     if evaluate:
         test_image_dir = "./images/onsite_test"
         backbone = "resnet18"
-        model_path = "./checkpoints/best_resnet18_1e-4-epoch50.pt"
+        model_path = "./checkpoints/best_resnet18.pt"
         batch_size = 32
         img_size = 256
         output_csv = f"onsite_predictions_{backbone}.csv"
