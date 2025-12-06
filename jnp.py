@@ -304,8 +304,8 @@ if __name__ == "__main__":
         
     if evaluate:
         test_image_dir = "./images/onsite_test"
-        backbone = "resnet18"
-        model_path = "./checkpoints/best_resnet18.pt"
+        backbone = "efficientnet"
+        model_path = "./checkpoints/best_efficientnet.pt"
         batch_size = 32
         img_size = 256
         output_csv = f"onsite_predictions_{backbone}.csv"
