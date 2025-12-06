@@ -98,17 +98,19 @@ def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, 
     model = build_model(backbone, num_classes=3, pretrained=False).to(device)
 
 
+    for p in model.parameters():
+        p.requires_grad = False
 
     # Freeze backbone if requested
     if freeze_backbone:
         if backbone == "resnet18":
             # Freeze all layers except the classifier (fc)
             for param in model.fc.parameters():
-                param.requires_grad = False
+                param.requires_grad = True
         elif backbone == "efficientnet":
             # Freeze all layers except the classifier
             for param in model.classifier.parameters():
-                param.requires_grad = False
+                param.requires_grad = True
         print(f"[{backbone}] Backbone frozen. Only classifier will be trained.")
     else:
         # All parameters trainable
