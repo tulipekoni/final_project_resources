@@ -11,6 +11,23 @@ F-score:
 ResNet18
 =================================
 
-
+DR Results [resnet18]
+Accuracy : 0.5000
+Precision: 0.5202
+Recall   : 0.5238
+F1-score : 0.4885
+Kappa    : 0.0385
+Glaucoma Results [resnet18]
+Accuracy : 0.7750
+Precision: 0.6922
+Recall   : 0.6097
+F1-score : 0.6230
+Kappa    : 0.2652
+AMD Results [resnet18]
+Accuracy : 0.8300
+Precision: 0.6685
+Recall   : 0.8049
+F1-score : 0.6988
+Kappa    : 0.4126
 
 F-score:

@@ -224,6 +224,7 @@ def predict_onsite_labels(model_path, image_dir, backbone="resnet18", batch_size
         pandas.DataFrame with columns: id, D, G, A
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(device)
     
     # Create transforms (same as training)
     transform = transforms.Compose([
@@ -279,7 +280,7 @@ def predict_onsite_labels(model_path, image_dir, backbone="resnet18", batch_size
 # main
 # ========================
 if __name__ == "__main__":
-    evaluate = false
+    evaluate = False
 
     if not evaluate:
         train_csv = "train.csv" # replace with your own train label file path
