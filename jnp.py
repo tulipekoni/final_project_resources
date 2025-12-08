@@ -78,17 +78,25 @@ def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
 
-    # transforms
-    transform = transforms.Compose([
+    # transforms - separate for train and val/test
+    train_transform = transforms.Compose([
+        transforms.Resize((img_size, img_size)),
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomVerticalFlip(p=0.5),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225]),
+    ])
+    
+    val_test_transform = transforms.Compose([
         transforms.Resize((img_size, img_size)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225]),
     ])
 
     # dataset & dataloader
-    train_ds = RetinaMultiLabelDataset(train_csv, train_image_dir, transform)
-    val_ds   = RetinaMultiLabelDataset(val_csv, val_image_dir, transform)
-    test_ds  = RetinaMultiLabelDataset(test_csv, test_image_dir, transform)
+    train_ds = RetinaMultiLabelDataset(train_csv, train_image_dir, train_transform)
+    val_ds   = RetinaMultiLabelDataset(val_csv, val_image_dir, val_test_transform)
+    test_ds  = RetinaMultiLabelDataset(test_csv, test_image_dir, val_test_transform)
 
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=4)
     val_loader   = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=4)
