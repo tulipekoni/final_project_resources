@@ -8,8 +8,28 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, models
+from torchvision.ops import sigmoid_focal_loss
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, cohen_kappa_score
 
+
+# ========================
+# Focal Loss Class
+# ========================
+class FocalLoss(nn.Module):
+
+    def __init__(self, alpha=0.25, gamma=2.0, reduction='mean'):
+        super(FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.reduction = reduction
+    
+    def forward(self, inputs, targets):
+        return sigmoid_focal_loss(
+            inputs, targets,
+            alpha=self.alpha,
+            gamma=self.gamma,
+            reduction=self.reduction
+        )
 
 # ========================
 # Dataset preparation
@@ -74,7 +94,7 @@ def build_model(backbone="resnet18", num_classes=3, pretrained=True):
 # ========================
 def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, val_image_dir, test_image_dir, 
                        epochs=10, batch_size=32, lr=1e-4, img_size=256, save_dir="checkpoints",pretrained_backbone=None,
-                       freeze_backbone=False):
+                       freeze_backbone=False, loss='focal'):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
 
@@ -126,7 +146,23 @@ def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, 
             p.requires_grad = True
     
     # loss & optimizer
-    criterion = nn.BCEWithLogitsLoss()
+    if loss == 'focal':
+        focal_alpha = 0.25
+        focal_gamma = 2.0
+        criterion = FocalLoss(alpha=focal_alpha, gamma=focal_gamma)
+        print(f"[{backbone}] Using Focal Loss (alpha={focal_alpha}, gamma={focal_gamma})")
+    elif loss == 'bce-balanced':
+        # Calculated from training data
+        pos_weight = [0.5474, 3.9080, 4.6338]
+        pos_weight_tensor = torch.tensor(pos_weight).to(device)
+        criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_tensor)
+        print(f"[{backbone}] Using BCEWithLogitsLoss with class balancing, pos_weight: {pos_weight}")
+    elif loss == 'bce-logits':
+        criterion = nn.BCEWithLogitsLoss()
+        print(f"[{backbone}] Using BCEWithLogitsLoss")
+    else:
+        raise ValueError(f"Unknown loss type: {loss}. Choose from 'focal', 'bce-logits', or 'bce-balanced'")
+    
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=lr)
 
     # training
@@ -303,10 +339,12 @@ if __name__ == "__main__":
         pretrained_backbone = './pretrained_backbone/ckpt_efficientnet_ep50.pt'  # replace with your own pretrained backbone path
         backbone = 'efficientnet'  # backbone choices: ["resnet18", "efficientnet"]
         freeze_backbone = False  # Set to True to freeze backbone during training
+        loss = 'focal'  # Loss choices: 'focal', 'bce-logits', 'bce-balanced'
+        
         train_one_backbone(
             backbone, train_csv, val_csv, test_csv, train_image_dir, val_image_dir, test_image_dir,
             epochs=20, batch_size=32, lr=5e-5, img_size=256, pretrained_backbone=pretrained_backbone,
-            freeze_backbone=freeze_backbone
+            freeze_backbone=freeze_backbone, loss=loss
         )
 
         
