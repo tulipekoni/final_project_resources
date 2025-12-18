@@ -327,7 +327,7 @@ def predict_onsite_labels(model_path, image_dir, backbone="resnet18", batch_size
 # main
 # ========================
 if __name__ == "__main__":
-    evaluate = True
+    evaluate = False
 
     if not evaluate:
         train_csv = "train.csv" # replace with your own train label file path
