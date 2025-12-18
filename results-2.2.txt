@@ -1,0 +1,30 @@
+
+=================================
+efficientnet (learning rate: 1e-4, epochs: 20, alpha = 0.5, gamma = 1.5)
+=================================
+
+
+=================================
+ResNet18 (learning rate: 1e-4, epochs: 20)
+=================================
+
+DR Results [resnet18]
+Accuracy : 0.8100
+Precision: 0.7741
+Recall   : 0.7929
+F1-score : 0.7817
+Kappa    : 0.5642
+Glaucoma Results [resnet18]
+Accuracy : 0.9100
+Precision: 0.8822
+Recall   : 0.8715
+F1-score : 0.8766
+Kappa    : 0.7533
+AMD Results [resnet18]
+Accuracy : 0.8300
+Precision: 0.6626
+Recall   : 0.7850
+F1-score : 0.6915
+Kappa    : 0.3963
+
+F-score: 0.79497

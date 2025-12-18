@@ -336,8 +336,8 @@ if __name__ == "__main__":
         train_image_dir ="./images/train"   # replace with your own train image floder path
         val_image_dir = "./images/val"  # replace with your own validation image floder path
         test_image_dir = "./images/offsite_test" # replace with your own test image floder path
-        pretrained_backbone = './pretrained_backbone/ckpt_resnet18_ep50.pt'  # replace with your own pretrained backbone path
-        backbone = 'resnet18'  # backbone choices: ["resnet18", "efficientnet"]
+        pretrained_backbone = './pretrained_backbone/ckpt_efficientnet_ep50.pt'  # replace with your own pretrained backbone path
+        backbone = 'efficientnet'  # backbone choices: ["resnet18", "efficientnet"]
         freeze_backbone = False  # Set to True to freeze backbone during training
         loss = 'bce-balanced'  # Loss choices: 'focal', 'bce-logits', 'bce-balanced'
         
@@ -350,8 +350,8 @@ if __name__ == "__main__":
         
     if evaluate:
         test_image_dir = "./images/onsite_test"
-        backbone = "resnet18"
-        model_path = "./checkpoints/best_resnet18.pt"
+        backbone = "efficientnet"
+        model_path = "./checkpoints/best_efficientnet.pt"
         batch_size = 32
         img_size = 256
         output_csv = f"onsite_predictions_{backbone}.csv"
