@@ -339,11 +339,11 @@ if __name__ == "__main__":
         pretrained_backbone = './pretrained_backbone/ckpt_resnet18_ep50.pt'  # replace with your own pretrained backbone path
         backbone = 'resnet18'  # backbone choices: ["resnet18", "efficientnet"]
         freeze_backbone = False  # Set to True to freeze backbone during training
-        loss = 'bce-logits'  # Loss choices: 'focal', 'bce-logits', 'bce-balanced'
+        loss = 'focal'  # Loss choices: 'focal', 'bce-logits', 'bce-balanced'
         
         train_one_backbone(
             backbone, train_csv, val_csv, test_csv, train_image_dir, val_image_dir, test_image_dir,
-            epochs=100, batch_size=32, lr=1e-4, img_size=256, pretrained_backbone=pretrained_backbone,
+            epochs=10, batch_size=32, lr=1e-4, img_size=256, pretrained_backbone=pretrained_backbone,
             freeze_backbone=freeze_backbone, loss=loss
         )
 
