@@ -343,7 +343,7 @@ if __name__ == "__main__":
         
         train_one_backbone(
             backbone, train_csv, val_csv, test_csv, train_image_dir, val_image_dir, test_image_dir,
-            epochs=20, batch_size=32, lr=5e-5, img_size=256, pretrained_backbone=pretrained_backbone,
+            epochs=50, batch_size=32, lr=5e-5, img_size=256, pretrained_backbone=pretrained_backbone,
             freeze_backbone=freeze_backbone, loss=loss
         )
 
