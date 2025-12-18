@@ -343,15 +343,15 @@ if __name__ == "__main__":
         
         train_one_backbone(
             backbone, train_csv, val_csv, test_csv, train_image_dir, val_image_dir, test_image_dir,
-            epochs=100, batch_size=32, lr=1e-3, img_size=256, pretrained_backbone=pretrained_backbone,
+            epochs=100, batch_size=32, lr=1e-4, img_size=256, pretrained_backbone=pretrained_backbone,
             freeze_backbone=freeze_backbone, loss=loss
         )
 
         
     if evaluate:
         test_image_dir = "./images/onsite_test"
-        backbone = "efficientnet"
-        model_path = "./checkpoints/best_efficientnet.pt"
+        backbone = "resnet18"
+        model_path = "./checkpoints/best_resnet18.pt"
         batch_size = 32
         img_size = 256
         output_csv = f"onsite_predictions_{backbone}.csv"
