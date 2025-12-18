@@ -147,8 +147,8 @@ def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, 
     
     # loss & optimizer
     if loss == 'focal':
-        focal_alpha = 0.25
-        focal_gamma = 2.0
+        focal_alpha = 0.5
+        focal_gamma = 1.5
         criterion = FocalLoss(alpha=focal_alpha, gamma=focal_gamma)
         print(f"[{backbone}] Using Focal Loss (alpha={focal_alpha}, gamma={focal_gamma})")
     elif loss == 'bce-balanced':
