@@ -94,7 +94,7 @@ def build_model(backbone="resnet18", num_classes=3, pretrained=True):
 # ========================
 def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, val_image_dir, test_image_dir, 
                        epochs=10, batch_size=32, lr=1e-4, img_size=256, save_dir="checkpoints",pretrained_backbone=None,
-                       freeze_backbone=False, loss='focal', use_scheduler=True):
+                       freeze_backbone=False, loss='focal'):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
 
@@ -165,14 +165,6 @@ def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, 
     
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=lr)
 
-    # learning rate scheduler
-    scheduler = None
-    if use_scheduler:
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode='min', factor=0.5, patience=5, verbose=True, min_lr=1e-8
-        )
-        print(f"[{backbone}] Using ReduceLROnPlateau scheduler (factor=0.5, patience=5)")
-
     # training
     best_val_loss = float("inf")
     os.makedirs(save_dir, exist_ok=True)
@@ -210,12 +202,6 @@ def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, 
         val_loss /= len(val_loader.dataset)
 
         print(f"[{backbone}] Epoch {epoch+1}/{epochs} Train Loss: {train_loss:.4f} Val Loss: {val_loss:.4f}")
-        
-        # update learning rate scheduler
-        if scheduler is not None:
-            scheduler.step(val_loss)
-            current_lr = optimizer.param_groups[0]['lr']
-            print(f"[{backbone}] Current learning rate: {current_lr:.2e}")
 
         # save best
         if val_loss < best_val_loss:
@@ -358,7 +344,7 @@ if __name__ == "__main__":
         train_one_backbone(
             backbone, train_csv, val_csv, test_csv, train_image_dir, val_image_dir, test_image_dir,
             epochs=100, batch_size=32, lr=1e-3, img_size=256, pretrained_backbone=pretrained_backbone,
-            freeze_backbone=freeze_backbone, loss=loss, use_scheduler=True
+            freeze_backbone=freeze_backbone, loss=loss
         )
 
         
