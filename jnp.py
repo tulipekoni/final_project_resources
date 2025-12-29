@@ -1,5 +1,7 @@
 import os
+import sys
 import pandas as pd
+import numpy as np
 from PIL import Image
 
 from sympy.sets.sets import false
@@ -76,13 +78,13 @@ class RetinaInferenceDataset(Dataset):
 # ========================
 # build model
 # ========================
-def build_model(backbone="resnet18", num_classes=3, pretrained=True):
+def build_model(backbone="resnet18", num_classes=3):
 
     if backbone == "resnet18":
-        model = models.resnet18(pretrained=pretrained)
+        model = models.resnet18()
         model.fc = nn.Linear(model.fc.in_features, num_classes)
     elif backbone == "efficientnet":
-        model = models.efficientnet_b0(pretrained=pretrained)
+        model = models.efficientnet_b0()
         model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)
     else:
         raise ValueError("Unsupported backbone")
@@ -95,8 +97,9 @@ def build_model(backbone="resnet18", num_classes=3, pretrained=True):
 def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, val_image_dir, test_image_dir, 
                        epochs=10, batch_size=32, lr=1e-4, img_size=256, save_dir="checkpoints",pretrained_backbone=None,
                        freeze_backbone=False, loss='focal'):
+    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(device)
+    print(f"Using device: {device}\n")
 
     # transforms - separate for train and val/test
     train_transform = transforms.Compose([
@@ -123,7 +126,7 @@ def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, 
     test_loader  = DataLoader(test_ds, batch_size=batch_size, shuffle=False, num_workers=4)
 
     # model
-    model = build_model(backbone, num_classes=3, pretrained=False).to(device)
+    model = build_model(backbone, num_classes=3).to(device)
 
 
     for p in model.parameters():
@@ -214,6 +217,10 @@ def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, 
     # ========================
     if epochs != 0:
         model.load_state_dict(torch.load(ckpt_path, map_location=device))
+    else:
+        print(f"[{backbone}] No training performed. Saving initial model as best model.")
+        torch.save(model.state_dict(), ckpt_path)
+        model.load_state_dict(torch.load(ckpt_path, map_location=device))
 
     model.eval()
     y_true, y_pred = [], []
@@ -227,8 +234,8 @@ def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, 
             y_true.extend(labels.numpy())
             y_pred.extend(preds)
 
-    y_true = torch.tensor(y_true).numpy()
-    y_pred = torch.tensor(y_pred).numpy()
+    y_true = torch.tensor(np.array(y_true))
+    y_pred = torch.tensor(np.array(y_pred))
 
     disease_names = ["DR", "Glaucoma", "AMD"]
 
@@ -271,7 +278,7 @@ def predict_onsite_labels(model_path, image_dir, backbone="resnet18", batch_size
         pandas.DataFrame with columns: id, D, G, A
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(device)
+    print(f"device: {device}\n")
     
     # Create transforms (same as training)
     transform = transforms.Compose([
@@ -285,7 +292,7 @@ def predict_onsite_labels(model_path, image_dir, backbone="resnet18", batch_size
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=4)
     
     # Build and load model
-    model = build_model(backbone, num_classes=3, pretrained=False).to(device)
+    model = build_model(backbone, num_classes=3).to(device)
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
     
@@ -322,39 +329,182 @@ def predict_onsite_labels(model_path, image_dir, backbone="resnet18", batch_size
     return results_df
 
 
+def get_args():
+
+    #default values
+    task_name = ''
+    backbone = 'efficientnet'  # backbone choices: ["resnet18", "efficientnet"]
+    train_mode = False
+    epochs = 20
+    learning_rate = 1e-3
+    evaluate_mode = False
+    freeze_backbone = False
+    loss_mode = 'bce-logits'  # Loss choices: 'bce-logits', 'focal', 'bce-balanced'
+    attention_mode = ''  # Attention choices: '', 'se', 'mha'
     
+    args = {}
+    for arg in sys.argv[1:]:
+        if '=' in arg:
+            key, value = arg.split('=', 1)
+            args[key.upper()] = value.upper()
+    print("Parsed arguments:")
+    print(args, "\n")
+    if(len(args) == 0):
+        print("No arguments provided. Avaliable arguments: 'TASK', 'BACKBONE', 'TRAIN', 'EVALUATE', 'LOSS_FUNCTION'")
+        print("Example usage: 'python jnp.py TASK=1.2 BACKBONE=RESNET18'")
+        sys.exit(1)
+
+    if 'TASK' in args:
+        if(args['TASK'] in ('1.1', '1.2', '1.3', '2.1', '2.2', '3.1', '3.2', '4')):
+            task_name = args['TASK']
+            train_mode, epochs, learning_rate, evaluate_mode, freeze_backbone, loss_mode, attention_mode = get_task_arg(task_name)
+        else:
+            print("Invalid TASK argument. Supported: '1.1', '1.2', '1.3', '2.1', '2.2', '3.1', '3.2', '4'")
+            sys.exit(1)
+        if 'BACKBONE' in args:
+            if(args['BACKBONE'] in ('RESNET18', 'EFFICIENTNET')):
+                backbone = args['BACKBONE'].lower()
+            else:
+                print("Invalid BACKBONE argument. Supported: 'resnet18', 'efficientnet'")
+                sys.exit(1)
+        else:
+            print("!!! No BACKBONE specified !!! Using default backbone:", backbone)
+
+    else:
+        if 'BACKBONE' in args:
+            if(args['BACKBONE'] in ('RESNET18', 'EFFICIENTNET')):
+                backbone = args['BACKBONE'].lower()
+            else:
+                print("Invalid BACKBONE argument. Supported: 'resnet18', 'efficientnet'")
+                sys.exit(1)
+
+        if 'TRAIN' in args:
+            if(args['TRAIN'] in ('1', 'TRUE')):
+                train_mode = True
+        else:
+            train_mode = False
+
+        if 'EPOCHS' in args:
+            if args['EPOCHS'].isdigit() and int(args['EPOCHS']) > 0:
+                epochs = int(args['EPOCHS'])
+            else:
+                print("Invalid EPOCHS argument. It should be positive integer.")
+                sys.exit(1)
+        
+        if 'LEARNING_RATE' in args:
+            try:
+                learning_rate = float(args['LEARNING_RATE'])
+                if learning_rate <= 0:
+                    raise ValueError
+            except ValueError:
+                print("Invalid LEARNING_RATE argument. It should be a positive float.")
+                sys.exit(1)
+
+        if 'EVALUATE' in args:
+            if(args['EVALUATE'] in ('1', 'TRUE')):
+                evaluate_mode = True
+        else:
+            evaluate_mode = False
+
+        if 'FREEZE_BACKBONE' in args:
+            if(args['FREEZE_BACKBONE'] in ('1', 'TRUE')):
+                freeze_backbone = True
+            else:
+                freeze_backbone = False
+
+        if 'LOSS_FUNCTION' in args:
+            if(args['LOSS_FUNCTION'] in ('FOCAL', 'BCE-LOGITS', 'BCE-BALANCED')):
+                loss_mode = args['LOSS_FUNCTION'].lower()
+            else:
+                print("Invalid LOSS_FUNCTION argument. Supported: 'bce-logits' (default), 'focal', 'bce-balanced'")
+                sys.exit(1)
+        if 'ATTENTION' in args:
+            if(args['ATTENTION'] in ('', 'SE', 'MHA')):
+                attention_mode = args['ATTENTION'].lower()
+            else:
+                print("Invalid ATTENTION argument. Supported: '', 'se', 'mha'")
+                sys.exit(1)
+
+
+    print("Backbone: ", backbone)
+    print("Training Mode: ", train_mode)
+    print("Epochs: ", epochs)
+    print("Learning Rate: ", learning_rate)
+    print("Evaluation Mode: ", evaluate_mode)
+    print("Loss Mode: ", loss_mode)
+    print("Attention Mode: ", attention_mode, "\n")
+
+    return task_name, backbone, train_mode, epochs, learning_rate, evaluate_mode, freeze_backbone, loss_mode, attention_mode
+
+
+
+def get_task_arg(task_name):
+
+    print("########################")
+    print(f"Task: {task_name}")
+    print("########################")
+
+    # Structure:
+    # train, epochs, learning_rate, evaluate_mode, freeze_backbone, loss_mode, attention_mode
+    if task_name == '1.1':
+        return True, 0, 0, True, False, 'bce-logits', ''
+    elif task_name == '1.2':
+        return True, 20, 1e-3, True, True, 'bce-logits', ''
+    elif task_name == '1.3':
+        return True, 20, 1e-3, True, False, 'bce-logits', ''
+    elif task_name == '2.1':
+        return True, 20, 1e-4, True, False, 'focal', ''
+    elif task_name == '2.2':
+        return True, 20, 1e-4, True, False, 'bce-balanced', ''
+    elif task_name == '3.1':
+        return 1
+    elif task_name == '3.2':
+        return 1
+    elif task_name == '4':
+        return 1
+    
+    return 1
+
+
 # ========================
 # main
 # ========================
 if __name__ == "__main__":
-    evaluate = False
 
-    if not evaluate:
+    task_name, backbone, train_mode, epochs, learning_rate, evaluate_mode, freeze_backbone, loss_mode, attention_mode = get_args()
+            
+    if train_mode:
         train_csv = "train.csv" # replace with your own train label file path
         val_csv   = "val.csv" # replace with your own validation label file path
         test_csv  = "offsite_test.csv"  # replace with your own test label file path
         train_image_dir ="./images/train"   # replace with your own train image floder path
         val_image_dir = "./images/val"  # replace with your own validation image floder path
         test_image_dir = "./images/offsite_test" # replace with your own test image floder path
-        pretrained_backbone = './pretrained_backbone/ckpt_efficientnet_ep50.pt'  # replace with your own pretrained backbone path
-        backbone = 'efficientnet'  # backbone choices: ["resnet18", "efficientnet"]
-        freeze_backbone = False  # Set to True to freeze backbone during training
-        loss = 'bce-logits'  # Loss choices: 'focal', 'bce-logits', 'bce-balanced'
+        if backbone == 'resnet18':
+            pretrained_backbone = './pretrained_backbone/ckpt_resnet18_ep50.pt'  # replace with your own pretrained backbone path
+        elif backbone == 'efficientnet':
+            pretrained_backbone = './pretrained_backbone/ckpt_efficientnet_ep50.pt'  # replace with your own pretrained backbone path
+        #backbone = 'efficientnet'  # backbone choices: ["resnet18", "efficientnet"]
+        #freeze_backbone = False  # Set to True to freeze backbone during training
+        #loss = 'bce-logits'  # Loss choices: 'focal', 'bce-logits', 'bce-balanced'
         
         train_one_backbone(
             backbone, train_csv, val_csv, test_csv, train_image_dir, val_image_dir, test_image_dir,
-            epochs=20, batch_size=32, lr=1e-3, img_size=256, pretrained_backbone=pretrained_backbone,
-            freeze_backbone=freeze_backbone, loss=loss
+            epochs=epochs, batch_size=32, lr=learning_rate, img_size=256, pretrained_backbone=pretrained_backbone,
+            freeze_backbone=freeze_backbone, loss=loss_mode
         )
 
-        
-    if evaluate:
+
+    if evaluate_mode:
         test_image_dir = "./images/onsite_test"
-        backbone = "efficientnet"
-        model_path = "./checkpoints/best_efficientnet.pt"
+        #backbone = "efficientnet"
+        model_path = f"./checkpoints/best_{backbone}.pt"
         batch_size = 32
         img_size = 256
-        output_csv = f"onsite_predictions_{backbone}.csv"
+        if task_name == '':
+            output_csv = f"./all_results/onsite_predictions_{backbone}.csv"
+        else:
+            output_csv = f"./task_results/onsite_predictions_{backbone}_task_{task_name}.csv"
 
         print("\n" + "="*50)
         print("Predicting onsite labels...")
