@@ -78,7 +78,7 @@ class RetinaInferenceDataset(Dataset):
 # ========================
 # build model
 # ========================
-def build_model(backbone="resnet18", num_classes=3):
+def build_model(backbone="resnet18", num_classes=3, attention=None):
 
     if backbone == "resnet18":
         model = models.resnet18()
@@ -96,7 +96,7 @@ def build_model(backbone="resnet18", num_classes=3):
 # ========================
 def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, val_image_dir, test_image_dir, 
                        epochs=10, batch_size=32, lr=1e-4, img_size=256, save_dir="checkpoints",pretrained_backbone=None,
-                       freeze_backbone=False, loss='focal'):
+                       freeze_backbone=False, loss='focal', attention=None):
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}\n")
@@ -126,7 +126,7 @@ def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, 
     test_loader  = DataLoader(test_ds, batch_size=batch_size, shuffle=False, num_workers=4)
 
     # model
-    model = build_model(backbone, num_classes=3).to(device)
+    model = build_model(backbone, num_classes=3, attention=attention_mode).to(device)
 
 
     for p in model.parameters():
@@ -234,11 +234,12 @@ def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, 
             y_true.extend(labels.numpy())
             y_pred.extend(preds)
 
-    y_true = torch.tensor(np.array(y_true))
-    y_pred = torch.tensor(np.array(y_pred))
+    y_true = torch.tensor(y_true).numpy()
+    y_pred = torch.tensor(y_pred).numpy()
 
     disease_names = ["DR", "Glaucoma", "AMD"]
 
+    print("\n")
     for i, disease in enumerate(disease_names):  #compute metrics for every disease
         y_t = y_true[:, i]
         y_p = y_pred[:, i]
@@ -340,7 +341,7 @@ def get_args():
     evaluate_mode = False
     freeze_backbone = False
     loss_mode = 'bce-logits'  # Loss choices: 'bce-logits', 'focal', 'bce-balanced'
-    attention_mode = ''  # Attention choices: '', 'se', 'mha'
+    attention_mode = None  # Attention choices: 'None', 'se', 'mha'
     
     args = {}
     for arg in sys.argv[1:]:
@@ -419,10 +420,13 @@ def get_args():
                 print("Invalid LOSS_FUNCTION argument. Supported: 'bce-logits' (default), 'focal', 'bce-balanced'")
                 sys.exit(1)
         if 'ATTENTION' in args:
-            if(args['ATTENTION'] in ('', 'SE', 'MHA')):
-                attention_mode = args['ATTENTION'].lower()
+            if(args['ATTENTION'] in ('NONE', 'SE', 'MHA')):
+                if args['ATTENTION'] == 'NONE':
+                    attention_mode = None
+                else:
+                    attention_mode = args['ATTENTION'].lower()
             else:
-                print("Invalid ATTENTION argument. Supported: '', 'se', 'mha'")
+                print("Invalid ATTENTION argument. Supported: 'None' 'se', 'mha'")
                 sys.exit(1)
 
 
@@ -447,19 +451,22 @@ def get_task_arg(task_name):
     # Structure:
     # train, epochs, learning_rate, evaluate_mode, freeze_backbone, loss_mode, attention_mode
     if task_name == '1.1':
-        return True, 0, 0, True, False, 'bce-logits', ''
+        return True, 0, 0, True, False, 'bce-logits', None
     elif task_name == '1.2':
-        return True, 20, 1e-3, True, True, 'bce-logits', ''
+        return True, 20, 1e-3, True, True, 'bce-logits', None
     elif task_name == '1.3':
-        return True, 20, 1e-3, True, False, 'bce-logits', ''
+        return True, 20, 1e-3, True, False, 'bce-logits', None
+    
     elif task_name == '2.1':
-        return True, 20, 1e-4, True, False, 'focal', ''
+        return True, 20, 1e-3, True, False, 'focal', None
     elif task_name == '2.2':
-        return True, 20, 1e-4, True, False, 'bce-balanced', ''
+        return True, 20, 1e-4, True, False, 'bce-balanced', None
+    
     elif task_name == '3.1':
-        return 1
+        return True, 20, 1e-4, True, False, 'bce-logits', 'se'
     elif task_name == '3.2':
-        return 1
+        return True, 20, 1e-4, True, False, 'bce-logits', 'mha'
+    
     elif task_name == '4':
         return 1
     
@@ -491,7 +498,7 @@ if __name__ == "__main__":
         train_one_backbone(
             backbone, train_csv, val_csv, test_csv, train_image_dir, val_image_dir, test_image_dir,
             epochs=epochs, batch_size=32, lr=learning_rate, img_size=256, pretrained_backbone=pretrained_backbone,
-            freeze_backbone=freeze_backbone, loss=loss_mode
+            freeze_backbone=freeze_backbone, loss=loss_mode, attention=attention_mode
         )
 
 
@@ -502,9 +509,9 @@ if __name__ == "__main__":
         batch_size = 32
         img_size = 256
         if task_name == '':
-            output_csv = f"./all_results/onsite_predictions_{backbone}.csv"
+            output_csv = f"./onsite_predictions_{backbone}.csv"
         else:
-            output_csv = f"./task_results/onsite_predictions_{backbone}_task_{task_name}.csv"
+            output_csv = f"./onsite_predictions_{backbone}_task_{task_name}.csv"
 
         print("\n" + "="*50)
         print("Predicting onsite labels...")

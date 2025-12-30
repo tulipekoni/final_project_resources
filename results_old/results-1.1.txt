@@ -1,0 +1,50 @@
+
+=================================
+efficientnet
+=================================
+
+DR Results [efficientnet]
+Accuracy : 0.6000
+Precision: 0.5588
+Recall   : 0.5667
+F1-score : 0.5575
+Kappa    : 0.1228
+Glaucoma Results [efficientnet]
+Accuracy : 0.7950
+Precision: 0.7243
+Recall   : 0.7333
+F1-score : 0.7285
+Kappa    : 0.4571
+AMD Results [efficientnet]
+Accuracy : 0.7150
+Precision: 0.6041
+Recall   : 0.7403
+F1-score : 0.5946
+Kappa    : 0.2482
+
+F-score: 0.60382
+
+=================================
+ResNet18
+=================================
+
+DR Results [resnet18]
+Accuracy : 0.5150
+Precision: 0.5170
+Recall   : 0.5202
+F1-score : 0.4958
+Kappa    : 0.0339
+Glaucoma Results [resnet18]
+Accuracy : 0.7850
+Precision: 0.7063
+Recall   : 0.6784
+F1-score : 0.6893
+Kappa    : 0.3804
+AMD Results [resnet18]
+Accuracy : 0.7850
+Precision: 0.6305
+Recall   : 0.7597
+F1-score : 0.6472
+Kappa    : 0.3211
+
+F-score: 0.56668

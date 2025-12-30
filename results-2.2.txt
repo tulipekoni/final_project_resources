@@ -4,47 +4,47 @@ efficientnet (learning rate: 1e-4, epochs: 20, alpha = 0.5, gamma = 1.5)
 =================================
 
 DR Results [efficientnet]
-Accuracy : 0.7500
-Precision: 0.7323
-Recall   : 0.7738
-F1-score : 0.7333
-Kappa    : 0.4792
+Accuracy : 0.7150
+Precision: 0.6893
+Recall   : 0.7202
+F1-score : 0.6917
+Kappa    : 0.3936
 Glaucoma Results [efficientnet]
-Accuracy : 0.8700
-Precision: 0.8266
-Recall   : 0.8174
-F1-score : 0.8218
-Kappa    : 0.6437
+Accuracy : 0.8250
+Precision: 0.7646
+Recall   : 0.7945
+F1-score : 0.7767
+Kappa    : 0.5546
 AMD Results [efficientnet]
-Accuracy : 0.7500
-Precision: 0.6327
-Recall   : 0.7998
-F1-score : 0.6358
-Kappa    : 0.3195
+Accuracy : 0.8150
+Precision: 0.6506
+Recall   : 0.7766
+F1-score : 0.6760
+Kappa    : 0.3692
 
-F-score: 0.79007
+F-score: 0.80419
 
 =================================
 ResNet18 (learning rate: 1e-4, epochs: 20)
 =================================
 
 DR Results [resnet18]
-Accuracy : 0.8100
-Precision: 0.7741
-Recall   : 0.7929
-F1-score : 0.7817
-Kappa    : 0.5642
+Accuracy : 0.8150
+Precision: 0.7806
+Recall   : 0.8060
+F1-score : 0.7900
+Kappa    : 0.5814
 Glaucoma Results [resnet18]
-Accuracy : 0.9100
-Precision: 0.8822
-Recall   : 0.8715
-F1-score : 0.8766
-Kappa    : 0.7533
+Accuracy : 0.8650
+Precision: 0.8131
+Recall   : 0.8555
+F1-score : 0.8298
+Kappa    : 0.6608
 AMD Results [resnet18]
-Accuracy : 0.8300
-Precision: 0.6626
-Recall   : 0.7850
-F1-score : 0.6915
-Kappa    : 0.3963
+Accuracy : 0.8800
+Precision: 0.7098
+Recall   : 0.7732
+F1-score : 0.7347
+Kappa    : 0.4714
 
-F-score: 0.79497
+F-score: 0.79650
