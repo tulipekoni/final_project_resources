@@ -74,26 +74,9 @@ class RetinaInferenceDataset(Dataset):
             img = self.transform(img)
         return img, self.image_files[idx]
 
-
 # ========================
-
-"""
-class SEBlock(nn.Module):
-    def __init__(self, channels, reduction=2):
-        super().__init__()
-        hidden = max(1, channels // reduction)
-
-        self.excitation = nn.Sequential(
-            nn.Linear(channels, hidden),
-            nn.ReLU(inplace=True),
-            nn.Linear(hidden, channels),
-            nn.Sigmoid()
-        )
-
-    def forward(self, x):
-        s = self.excitation(x)
-        return x * s
-"""
+# Squeeze-and-Excitation (SE) Block
+# ========================
 class SEBlock(nn.Module):
     def __init__(self, channel, reduction=8):
         super(SEBlock, self).__init__()
