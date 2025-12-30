@@ -76,18 +76,60 @@ class RetinaInferenceDataset(Dataset):
 
 
 # ========================
+
+"""
+class SEBlock(nn.Module):
+    def __init__(self, channels, reduction=2):
+        super().__init__()
+        hidden = max(1, channels // reduction)
+
+        self.excitation = nn.Sequential(
+            nn.Linear(channels, hidden),
+            nn.ReLU(inplace=True),
+            nn.Linear(hidden, channels),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        s = self.excitation(x)
+        return x * s
+"""
+class SEBlock(nn.Module):
+    def __init__(self, channel, reduction=8):
+        super(SEBlock, self).__init__()
+        hidden = max(1, channel // reduction)
+        self.squeeze = nn.AdaptiveAvgPool2d(1)
+        self.excitation = nn.Sequential(
+            nn.Linear(channel, hidden, bias=False),
+            nn.ReLU(inplace=True),
+            nn.Linear(hidden, channel, bias=False),
+            nn.Sigmoid()
+        )
+    def forward(self, x):
+        b, c, _, _ = x.size()
+        y = self.squeeze(x).view(b, c)
+        s = self.excitation(y).view(b, c, 1, 1)
+        return x * (1.0 + s)
+
+# ========================
 # build model
 # ========================
 def build_model(backbone="resnet18", num_classes=3, attention=None):
 
     if backbone == "resnet18":
         model = models.resnet18()
+        if attention == 'se':
+            model.avgpool = nn.Sequential(SEBlock(model.fc.in_features), model.avgpool)
         model.fc = nn.Linear(model.fc.in_features, num_classes)
     elif backbone == "efficientnet":
         model = models.efficientnet_b0()
+        if attention == 'se':
+            model.avgpool = nn.Sequential(SEBlock(model.classifier[1].in_features), model.avgpool)
         model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)
     else:
         raise ValueError("Unsupported backbone")
+    
+
     return model
 
 
@@ -126,7 +168,7 @@ def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, 
     test_loader  = DataLoader(test_ds, batch_size=batch_size, shuffle=False, num_workers=4)
 
     # model
-    model = build_model(backbone, num_classes=3, attention=attention_mode).to(device)
+    model = build_model(backbone, num_classes=3, attention=attention).to(device)
 
 
     for p in model.parameters():
@@ -175,8 +217,12 @@ def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, 
 
     # load pretrained backbone
     if pretrained_backbone is not None:
-        state_dict = torch.load(pretrained_backbone, map_location="cpu")
-        model.load_state_dict(state_dict)
+        if attention == None:
+            state_dict = torch.load(pretrained_backbone, map_location=device)
+            model.load_state_dict(state_dict)
+        else: # for models with attention modules
+            print(f"Loading pretrained model state from {pretrained_backbone} without strict matching...")
+            model.load_state_dict(torch.load(pretrained_backbone, map_location=device), strict=False)
     
 
     for epoch in range(epochs):
@@ -294,7 +340,12 @@ def predict_onsite_labels(model_path, image_dir, backbone="resnet18", batch_size
     
     # Build and load model
     model = build_model(backbone, num_classes=3).to(device)
-    model.load_state_dict(torch.load(model_path, map_location=device))
+    if attention_mode is None:
+        model.load_state_dict(torch.load(model_path, map_location=device))
+    else:
+        model.load_state_dict(torch.load(model_path, map_location=device), strict=False)
+
+
     model.eval()
     
     # Make predictions
@@ -463,9 +514,9 @@ def get_task_arg(task_name):
         return True, 20, 1e-4, True, False, 'bce-balanced', None
     
     elif task_name == '3.1':
-        return True, 20, 1e-4, True, False, 'bce-logits', 'se'
+        return True, 20, 1e-3, True, False, 'bce-logits', 'se'
     elif task_name == '3.2':
-        return True, 20, 1e-4, True, False, 'bce-logits', 'mha'
+        return True, 20, 1e-3, True, False, 'bce-logits', 'mha'
     
     elif task_name == '4':
         return 1
