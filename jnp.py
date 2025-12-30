@@ -109,26 +109,6 @@ class MHABlock(nn.Module):
         attn_out, _ = self.mha(tokens, tokens, tokens)
         attn_out = attn_out.permute(0, 2, 1).view(b, c, h, w)
         return x + attn_out
-"""class MHABlock(nn.Module):
-    def __init__(self, channels, num_heads=8, dropout=0.0):
-        super().__init__()
-        assert channels % num_heads == 0, "channels must be divisible by num_heads"
-        self.mha = nn.MultiheadAttention(embed_dim=channels, num_heads=num_heads, dropout=dropout, batch_first=True)
-
-        # tiny per-token projection
-        self.proj = nn.Sequential(
-            nn.LayerNorm(channels),
-            nn.Linear(channels, channels),
-            nn.ReLU(inplace=True),
-        )
-
-    def forward(self, x):
-        b, c, h, w = x.shape
-        tokens = x.view(b, c, h * w).permute(0, 2, 1)   # (B, L, C)
-        attn_out, _ = self.mha(tokens, tokens, tokens)
-        attn_out = self.proj(attn_out)
-        attn_out = attn_out.permute(0, 2, 1).view(b, c, h, w)
-        return x + attn_out"""
 
 # ========================
 # build model
@@ -231,6 +211,11 @@ def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, 
         raise ValueError(f"Unknown loss type: {loss}. Choose from 'focal', 'bce-logits', or 'bce-balanced'")
     
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=lr)
+    if task_name == '4':
+        print(f"[{backbone}] Using AdamW optimizer with weight decay for Task 4")
+        optimizer = optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=1e-4)
+        print(f"[{backbone}] Using CosineAnnealingLR scheduler for Task 4")
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs * len(train_loader), eta_min=1e-6)
 
     # training
     best_val_loss = float("inf")
@@ -257,6 +242,8 @@ def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, 
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
+            if task_name == '4':
+                scheduler.step()
             train_loss += loss.item() * imgs.size(0)
 
         train_loss /= len(train_loader.dataset)
@@ -273,6 +260,8 @@ def train_one_backbone(backbone, train_csv, val_csv, test_csv, train_image_dir, 
         val_loss /= len(val_loader.dataset)
 
         print(f"[{backbone}] Epoch {epoch+1}/{epochs} Train Loss: {train_loss:.4f} Val Loss: {val_loss:.4f}")
+        if task_name == '4':
+            print(f"[{backbone}] Learning Rate: {optimizer.param_groups[0]['lr']:.6f}")
 
         # save best
         if val_loss < best_val_loss:
@@ -544,7 +533,7 @@ def get_task_arg(task_name):
         return True, 20, 1e-3, True, False, 'bce-logits', 'mha'
     
     elif task_name == '4':
-        return 1
+        return True, 20, 1e-3, True, False, 'bce-logits', None
     
     return 1
 
