@@ -93,6 +93,42 @@ class SEBlock(nn.Module):
         y = self.squeeze(x).view(b, c)
         s = self.excitation(y).view(b, c, 1, 1)
         return x * (1.0 + s)
+    
+# ========================
+# Multi-Head-Attention (MHA) Block
+# ========================
+class MHABlock(nn.Module):
+    def __init__(self, channels, num_heads=16, dropout=0.0):
+        super().__init__()
+        assert channels % num_heads == 0, "channels must be divisible by num_heads"
+        self.mha = nn.MultiheadAttention(embed_dim=channels, num_heads=num_heads, dropout=dropout, batch_first=True)
+
+    def forward(self, x):
+        b, c, h, w = x.shape
+        tokens = x.view(b, c, h * w).permute(0, 2, 1)   # (B, L, C)
+        attn_out, _ = self.mha(tokens, tokens, tokens)
+        attn_out = attn_out.permute(0, 2, 1).view(b, c, h, w)
+        return x + attn_out
+"""class MHABlock(nn.Module):
+    def __init__(self, channels, num_heads=8, dropout=0.0):
+        super().__init__()
+        assert channels % num_heads == 0, "channels must be divisible by num_heads"
+        self.mha = nn.MultiheadAttention(embed_dim=channels, num_heads=num_heads, dropout=dropout, batch_first=True)
+
+        # tiny per-token projection
+        self.proj = nn.Sequential(
+            nn.LayerNorm(channels),
+            nn.Linear(channels, channels),
+            nn.ReLU(inplace=True),
+        )
+
+    def forward(self, x):
+        b, c, h, w = x.shape
+        tokens = x.view(b, c, h * w).permute(0, 2, 1)   # (B, L, C)
+        attn_out, _ = self.mha(tokens, tokens, tokens)
+        attn_out = self.proj(attn_out)
+        attn_out = attn_out.permute(0, 2, 1).view(b, c, h, w)
+        return x + attn_out"""
 
 # ========================
 # build model
@@ -103,15 +139,18 @@ def build_model(backbone="resnet18", num_classes=3, attention=None):
         model = models.resnet18()
         if attention == 'se':
             model.avgpool = nn.Sequential(SEBlock(model.fc.in_features), model.avgpool)
+        elif attention == 'mha':
+            model.avgpool = nn.Sequential(MHABlock(model.fc.in_features), model.avgpool)
         model.fc = nn.Linear(model.fc.in_features, num_classes)
     elif backbone == "efficientnet":
         model = models.efficientnet_b0()
         if attention == 'se':
             model.avgpool = nn.Sequential(SEBlock(model.classifier[1].in_features), model.avgpool)
+        elif attention == 'mha':
+            model.avgpool = nn.Sequential(MHABlock(model.classifier[1].in_features), model.avgpool)
         model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)
     else:
         raise ValueError("Unsupported backbone")
-    
 
     return model
 
@@ -404,6 +443,9 @@ def get_args():
                 sys.exit(1)
         else:
             print("!!! No BACKBONE specified !!! Using default backbone:", backbone)
+        if 'TRAIN' in  args: # for running only evaluation for saved task models
+            if(args['TRAIN'] in ('0', 'FALSE')):
+                train_mode = False
 
     else:
         if 'BACKBONE' in args:
@@ -540,6 +582,12 @@ if __name__ == "__main__":
         test_image_dir = "./images/onsite_test"
         #backbone = "efficientnet"
         model_path = f"./checkpoints/best_{backbone}.pt"
+
+        if not task_name == '': #for running evaluation only for task-specific saved models
+            if train_mode == False:  
+                model_path = f"./checkpoints/best_{backbone}_task{task_name}.pt"
+                print(f"Using already trained and saved test model for evaluation for task {task_name} in : {model_path}")
+            
         batch_size = 32
         img_size = 256
         if task_name == '':
