@@ -22,7 +22,7 @@ Recall   : 0.7766
 F1-score : 0.6760
 Kappa    : 0.3692
 
-F-score: 0.80419
+Onsite average F-score: 0.80419
 
 =================================
 ResNet18 (learning rate: 1e-4, epochs: 20)
@@ -47,4 +47,4 @@ Recall   : 0.7732
 F1-score : 0.7347
 Kappa    : 0.4714
 
-F-score: 0.79650
+Onsite average F-score: 0.79650
