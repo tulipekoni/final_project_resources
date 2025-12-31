@@ -404,6 +404,7 @@ def get_args():
     freeze_backbone = False
     loss_mode = 'bce-logits'  # Loss choices: 'bce-logits', 'focal', 'bce-balanced'
     attention_mode = None  # Attention choices: 'None', 'se', 'mha'
+    teacher_run = False
     
     args = {}
     for arg in sys.argv[1:]:
@@ -413,9 +414,10 @@ def get_args():
     print("Parsed arguments:")
     print(args, "\n")
     if(len(args) == 0):
-        print("No arguments provided. Avaliable arguments: 'TASK', 'BACKBONE', 'TRAIN', 'EVALUATE', 'LOSS_FUNCTION'")
+        print("No arguments provided. Avaliable arguments: 'TASK', 'BACKBONE', 'TRAIN','EPOCHS', 'LEARNING_RATE' 'EVALUATE', 'FREEZE_BACKBONE', 'LOSS_FUNCTION', 'ATTENTION'")
         print("Example usage: 'python jnp.py TASK=1.2 BACKBONE=RESNET18'")
         sys.exit(1)
+
 
     if 'TASK' in args:
         if(args['TASK'] in ('1.1', '1.2', '1.3', '2.1', '2.2', '3.1', '3.2', '4')):
@@ -435,6 +437,12 @@ def get_args():
         if 'TRAIN' in  args: # for running only evaluation for saved task models
             if(args['TRAIN'] in ('0', 'FALSE')):
                 train_mode = False
+
+        if 'RUN' in args:
+            if(args['RUN'] in ('1', 'TRUE')):
+                teacher_run = True
+                train_mode = False
+                evaluate_mode = True
 
     else:
         if 'BACKBONE' in args:
@@ -503,7 +511,7 @@ def get_args():
     print("Loss Mode: ", loss_mode)
     print("Attention Mode: ", attention_mode, "\n")
 
-    return task_name, backbone, train_mode, epochs, learning_rate, evaluate_mode, freeze_backbone, loss_mode, attention_mode
+    return task_name, backbone, train_mode, epochs, learning_rate, evaluate_mode, freeze_backbone, loss_mode, attention_mode, teacher_run
 
 
 
@@ -543,7 +551,7 @@ def get_task_arg(task_name):
 # ========================
 if __name__ == "__main__":
 
-    task_name, backbone, train_mode, epochs, learning_rate, evaluate_mode, freeze_backbone, loss_mode, attention_mode = get_args()
+    task_name, backbone, train_mode, epochs, learning_rate, evaluate_mode, freeze_backbone, loss_mode, attention_mode, teacher_run = get_args()
             
     if train_mode:
         train_csv = "train.csv" # replace with your own train label file path
@@ -575,14 +583,28 @@ if __name__ == "__main__":
         if not task_name == '': #for running evaluation only for task-specific saved models
             if train_mode == False:  
                 model_path = f"./checkpoints/best_{backbone}_task{task_name}.pt"
-                print(f"Using already trained and saved test model for evaluation for task {task_name} in : {model_path}")
-            
+                #print(f"Using already trained and saved test model for evaluation for task {task_name} in : {model_path}")
+        if teacher_run:
+            if task_name == '4':
+                model_path = f"jnp_task{task_name}.pt"
+                print(f"Using teacher model for evaluation for task {task_name} in : {model_path}")
+            else:
+                task_name_split = task_name.split('.')
+                model_path = f"jnp_task{task_name_split[0]}-{task_name_split[1]}.pt"
+                print(f"Using teacher model for evaluation for task {task_name} in : {model_path}")
+
         batch_size = 32
         img_size = 256
-        if task_name == '':
-            output_csv = f"./onsite_predictions_{backbone}.csv"
+        if teacher_run:
+            if task_name == '4':
+                output_csv = f"./onsite_test_jnp_task{task_name}.csv"
+            else:
+                output_csv = f"./onsite_test_jnp_task{task_name_split[0]}-{task_name_split[1]}.csv"
         else:
-            output_csv = f"./onsite_predictions_{backbone}_task_{task_name}.csv"
+            if task_name == '':
+                output_csv = f"./onsite_predictions_{backbone}.csv"
+            else:
+                output_csv = f"./onsite_predictions_{backbone}_task_{task_name}.csv"
 
         print("\n" + "="*50)
         print("Predicting onsite labels...")
